@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic Tac Toe – Multiplayer</title>
+  <meta name="description" content="Play real-time multiplayer Tic Tac Toe. Register, find a match, and battle opponents live!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:        #0d0f1a;
+      --surface:   #161929;
+      --surface2:  #1e2236;
+      --border:    rgba(255,255,255,0.08);
+      --accent:    #6c63ff;
+      --accent2:   #ff6584;
+      --x-color:   #6c63ff;
+      --o-color:   #ff6584;
+      --text:      #e8eaf6;
+      --muted:     #7b7fa8;
+      --success:   #4caf7d;
+      --warning:   #ffc107;
+      --radius:    14px;
+      --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ───── Background glow blobs ───── */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: rgba(108,99,255,0.18);
+      top: -150px; left: -150px;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: rgba(255,101,132,0.14);
+      bottom: -100px; right: -100px;
+    }
+
+    /* ───── Nav ───── */
+    nav {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 40px;
+      backdrop-filter: blur(12px);
+      background: rgba(22,25,41,0.7);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-logo {
+      font-size: 1.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    .nav-user {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    #nav-username { color: var(--text); font-weight: 600; }
+    #btn-logout {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    #btn-logout:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    /* ───── Layout wrapper ───── */
+    main {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 900px;
+      padding: 30px 20px 60px;
+    }
+
+    /* ───── Screens ───── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ───── Cards ───── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px 40px;
+      backdrop-filter: blur(8px);
+    }
+
+    /* ───── Auth screen ───── */
+    #auth-screen {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding-top: 60px;
+    }
+    .auth-card {
+      width: 400px;
+      max-width: 100%;
+    }
+    .auth-title {
+      font-size: 2rem;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .auth-subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 30px;
+    }
+
+    .tab-row {
+      display: flex;
+      gap: 4px;
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 9px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: transparent;
+      color: var(--muted);
+      transition: var(--transition);
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(108,99,255,0.4);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    label { font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+    input[type="text"], input[type="password"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: var(--transition);
+      outline: none;
+    }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,0.2); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      transition: var(--transition);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #8b83ff);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(108,99,255,0.35);
+      width: 100%;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(108,99,255,0.5); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-danger {
+      background: rgba(255,101,132,0.15);
+      color: var(--accent2);
+      border: 1px solid rgba(255,101,132,0.25);
+    }
+    .btn-danger:hover { background: rgba(255,101,132,0.25); }
+
+    .auth-msg {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 0.85rem;
+      min-height: 20px;
+    }
+    .auth-msg.error { color: var(--accent2); }
+    .auth-msg.success { color: var(--success); }
+
+    /* ───── Lobby screen ───── */
+    #lobby-screen { display: none; }
+    #lobby-screen.active { display: block; }
+
+    .lobby-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .lobby-header h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .lobby-header p { color: var(--muted); }
+
+    .lobby-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 600px) { .lobby-grid { grid-template-columns: 1fr; } }
+
+    .lobby-card-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .lobby-card-title::before {
+      content: '';
+      display: inline-block;
+      width: 12px; height: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-row span:first-child { color: var(--muted); }
+    .stat-value-win  { color: var(--success); font-weight: 700; }
+    .stat-value-loss { color: var(--accent2); font-weight: 700; }
+
+    .matchmaking-status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 10px;
+      background: var(--surface2);
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .dot.waiting { background: var(--warning); animation: pulse 1.2s infinite; }
+    .dot.found   { background: var(--success); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ───── Leaderboard ───── */
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-rank {
+      width: 26px;
+      font-weight: 800;
+      color: var(--muted);
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .lb-rank.gold   { color: #ffd700; }
+    .lb-rank.silver { color: #c0c0c0; }
+    .lb-rank.bronze { color: #cd7f32; }
+    .lb-name { flex: 1; font-weight: 600; }
+    .lb-wins  { color: var(--success); font-weight: 700; min-width: 50px; text-align: right; }
+    .lb-losses { color: var(--accent2); font-weight: 700; min-width: 50px; text-align: right; }
+
+    /* ───── Game screen ───── */
+    #game-screen { display: none; }
+    #game-screen.active { display: block; }
+
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+    .game-header h2 { font-size: 1.4rem; font-weight: 800; }
+    .match-info { font-size: 0.85rem; color: var(--muted); }
+
+    .players-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .player-card {
+      flex: 1;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      text-align: center;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .player-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: transparent;
+      transition: var(--transition);
+    }
+    .player-card.x-card::after { background: var(--x-color); }
+    .player-card.o-card::after { background: var(--o-color); }
+    .player-card.active-turn { border-color: rgba(108,99,255,0.5); box-shadow: 0 0 20px rgba(108,99,255,0.15); }
+    .player-card.active-turn.o-card.o-active { border-color: rgba(255,101,132,0.5); box-shadow: 0 0 20px rgba(255,101,132,0.15); }
+    .player-symbol { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+    .player-symbol.x { color: var(--x-color); }
+    .player-symbol.o { color: var(--o-color); }
+    .player-name { font-size: 0.85rem; color: var(--muted); margin-top: 5px; }
+    .turn-badge {
+      font-size: 0.7rem;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 20px;
+      padding: 2px 8px;
+      margin-top: 6px;
+      display: inline-block;
+      opacity: 0;
+      transition: var(--transition);
+    }
+    .player-card.active-turn .turn-badge { opacity: 1; }
+    .player-card.o-card.o-active .turn-badge { background: var(--accent2); }
+
+    .vs-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+
+    /* ───── Board ───── */
+    .board-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      width: min(360px, 90vw);
+    }
+    .cell {
+      aspect-ratio: 1;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(1.8rem, 8vw, 2.6rem);
+      font-weight: 900;
+      cursor: pointer;
+      transition: var(--transition);
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .cell:hover:not(.taken) {
+      background: var(--surface);
+      border-color: rgba(108,99,255,0.4);
+      transform: scale(1.04);
+    }
+    .cell.taken { cursor: default; }
+    .cell.x-cell { color: var(--x-color); border-color: rgba(108,99,255,0.35); }
+    .cell.o-cell { color: var(--o-color); border-color: rgba(255,101,132,0.35); }
+    .cell.winning { animation: winPop 0.4s ease forwards; }
+    @keyframes winPop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.12); }
+      100% { transform: scale(1.05); }
+    }
+    .cell-inner {
+      display: inline-block;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .cell.taken .cell-inner { transform: scale(1.15); }
+
+    /* ───── Game status bar ───── */
+    #game-status {
+      text-align: center;
+      min-height: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .status-msg {
+      font-size: 1.1rem;
+      font-weight: 700;
+      transition: var(--transition);
+    }
+    .status-msg.win-msg  { color: var(--success); }
+    .status-msg.draw-msg { color: var(--warning); }
+    .status-msg.live-msg { color: var(--muted); }
+    #game-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+    /* ───── Modal overlay ───── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .modal-overlay.visible { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      width: 360px;
+      max-width: 90vw;
+      transform: scale(0.9);
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .modal-overlay.visible .modal { transform: scale(1); }
+    .modal-emoji { font-size: 3.5rem; margin-bottom: 12px; }
+    .modal-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; }
+    .modal-subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: center; }
+
+    /* ───── Toast ───── */
+    #toast {
+      position: fixed;
+      bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 24px;
+      font-size: 0.9rem;
+      z-index: 300;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      white-space: nowrap;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ───── Spinner ───── */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ───── Scrollbar ───── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+    /* ───── Section gap ───── */
+    .section-gap { margin-top: 24px; }
+
+    /* ───── Responsive ───── */
+    @media (max-width: 480px) {
+      nav { padding: 16px 20px; }
+      .card { padding: 24px 20px; }
+      .auth-card { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="navbar">
+  <div class="nav-logo">⚔ TTT Arena</div>
+  <div class="nav-user" id="nav-user-area" style="display:none">
+    Logged in as <span id="nav-username"></span>
+    <button class="btn btn-secondary" id="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<main id="main-content">
+
+  <!-- ───── AUTH SCREEN ───── -->
+  <section id="auth-screen" class="screen active">
+    <div class="auth-card card">
+      <div class="auth-title">TTT Arena</div>
+      <p class="auth-subtitle">Register or log in to find opponents and play live</p>
+
+      <div class="tab-row">
+        <button class="tab-btn active" id="tab-login"    onclick="switchTab('login')">Login</button>
+        <button class="tab-btn"        id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <div id="login-form">
+        <div class="form-group">
+          <label for="login-user">Username</label>
+          <input type="text" id="login-user" placeholder="Enter username" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="login-pass">Password</label>
+          <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password" />
+        </div>
+        <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Login</button>
+        <div class="auth-msg" id="login-msg"></div>
+      </div>
+
+      <div id="register-form" style="display:none">
+        <div class="form-group">
+          <label for="reg-user">Username</label>
+          <input type="text" id="reg-user" placeholder="Choose username" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="reg-pass">Password</label>
+          <input type="password" id="reg-pass" placeholder="Choose password" autocomplete="new-password" />
+        </div>
+        <button class="btn btn-primary" id="btn-register" onclick="doRegister()">Create Account</button>
+        <div class="auth-msg" id="register-msg"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───── LOBBY SCREEN ───── -->
+  <section id="lobby-screen" class="screen">
+    <div class="lobby-header">
+      <h2>🎮 Game Lobby</h2>
+      <p>Find a match and dominate the board</p>
+    </div>
+
+    <div class="lobby-grid">
+
+      <!-- Matchmaking card -->
+      <div class="card">
+        <div class="lobby-card-title">Matchmaking</div>
+        <div class="matchmaking-status" id="queue-status">
+          <div class="dot" id="queue-dot"></div>
+          <span id="queue-msg">Press "Find Match" to join the queue</span>
+        </div>
+        <button class="btn btn-primary" id="btn-find" onclick="findMatch()">Find Match</button>
+
+        <div class="section-gap" id="match-id-section" style="display:none">
+          <div class="lobby-card-title">Or join by Match ID</div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <input type="text" id="manual-match-id" placeholder="Match ID" style="flex:1" />
+            <button class="btn btn-secondary" onclick="joinManualMatch()">Join</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats card -->
+      <div class="card">
+        <div class="lobby-card-title">Your Stats</div>
+        <div class="stat-row">
+          <span>Username</span><span id="stat-username">—</span>
+        </div>
+        <div class="stat-row">
+          <span>Wins</span><span class="stat-value-win" id="stat-wins">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Losses</span><span class="stat-value-loss" id="stat-losses">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Win Rate</span><span id="stat-wr">—</span>
+        </div>
+      </div>
+
+      <!-- Leaderboard (full width) -->
+      <div class="card" style="grid-column:1/-1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div class="lobby-card-title" style="margin-bottom:0">Leaderboard</div>
+          <button class="btn btn-secondary" style="padding:6px 14px;font-size:0.8rem" onclick="loadLeaderboard()">↻ Refresh</button>
+        </div>
+        <div id="leaderboard-list">
+          <p style="color:var(--muted);font-size:0.85rem;text-align:center;padding:20px 0">Loading…</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Manual join toggle -->
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn btn-secondary" style="font-size:0.8rem;padding:7px 16px"
+        onclick="document.getElementById('match-id-section').style.display=document.getElementById('match-id-section').style.display==='none'?'block':'none'">
+        Join by Match ID
+      </button>
+    </div>
+  </section>
+
+  <!-- ───── GAME SCREEN ───── -->
+  <section id="game-screen" class="screen">
+    <div class="game-header">
+      <h2>⚔ Live Match</h2>
+      <span class="match-info" id="match-label">Match #—</span>
+    </div>
+
+    <div class="players-row">
+      <div class="player-card x-card" id="card-x">
+        <div class="player-symbol x">✕</div>
+        <div class="player-name" id="name-x">Player X</div>
+        <div class="turn-badge">Your Turn</div>
+      </div>
+      <div class="vs-divider">VS</div>
+      <div class="player-card o-card" id="card-o">
+        <div class="player-symbol o">○</div>
+        <div class="player-name" id="name-o">Player O</div>
+        <div class="turn-badge">Your Turn</div>
+      </div>
+    </div>
+
+    <div class="board-wrapper">
+      <div id="board"></div>
+    </div>
+
+    <div id="game-status">
+      <div class="status-msg live-msg" id="status-text">Waiting for opponent…</div>
+      <div id="game-actions"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ───── RESULT MODAL ───── -->
+<div class="modal-overlay" id="result-modal">
+  <div class="modal">
+    <div class="modal-emoji" id="modal-emoji">🏆</div>
+    <div class="modal-title" id="modal-title">You Won!</div>
+    <div class="modal-subtitle" id="modal-subtitle">Congratulations on your victory</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="goLobby()">🏠 Back to Lobby</button>
+    </div>
+  </div>
+</div>
+
+<!-- ───── TOAST ───── -->
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   Config
+===================================================================== */
+const API = 'http://127.0.0.1:8000';
+const WS  = 'ws://127.0.0.1:8000';
+
+/* =====================================================================
+   State
+===================================================================== */
+let currentUser   = null; // { id, username }
+let ws            = null;
+let board         = Array(9).fill('');
+let mySymbol      = null; // 'X' or 'O'
+let currentMatchId = null;
+let gameOver      = false;
+let pollTimer     = null;
+
+/* =====================================================================
+   Utilities
+===================================================================== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setMsg(id, msg, type = '') {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'auth-msg ' + type;
+}
+
+function toast(msg, duration = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function showModal(emoji, title, subtitle) {
+  document.getElementById('modal-emoji').textContent   = emoji;
+  document.getElementById('modal-title').textContent   = title;
+  document.getElementById('modal-subtitle').textContent = subtitle;
+  document.getElementById('result-modal').classList.add('visible');
+}
+
+function setLoading(btnId, loading, text) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? `<span class="spinner"></span> ${text}`
+    : text;
+}
+
+/* =====================================================================
+   Auth tab switch
+===================================================================== */
+function switchTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('tab-login').className    = 'tab-btn' + (isLogin  ? ' active' : '');
+  document.getElementById('tab-register').className = 'tab-btn' + (!isLogin ? ' active' : '');
+  document.getElementById('login-form').style.display    = isLogin  ? '' : 'none';
+  document.getElementById('register-form').style.display = !isLogin ? '' : 'none';
+}
+
+/* =====================================================================
+   Register
+===================================================================== */
+async function doRegister() {
+  const username = document.getElementById('reg-user').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  if (!username || !password) { setMsg('register-msg', 'Please fill all fields.', 'error'); return; }
+
+  setLoading('btn-register', true, 'Creating…');
+  try {
+    const res  = await fetch(`${API}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg('register-msg', '✅ Account created! You can now log in.', 'success');
+      setTimeout(() => switchTab('login'), 1200);
+    } else {
+      setMsg('register-msg', data.detail || 'Registration failed.', 'error');
+    }
+  } catch {
+    setMsg('register-msg', 'Server unreachable. Is the backend running?', 'error');
+  } finally {
+    setLoading('btn-register', false, 'Create Account');
+  }
+}
+
+/* =====================================================================
+   Login
+===================================================================== */
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  if (!username || !password) { setMsg('login-msg', 'Please fill all fields.', 'error'); return; }
+
+  setLoading('btn-login', true, 'Logging in…');
+  try {
+    const res  = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      currentUser = { id: data.user_id, username };
+      afterLogin();
+    } else {
+      setMsg('login-msg', data.detail || 'Login failed.', 'error');
+    }
+  } catch {
+    setMsg('login-msg', 'Server unreachable. Is the backend running?', 'error');
+  } finally {
+    setLoading('btn-login', false, 'Login');
+  }
+}
+
+function afterLogin() {
+  document.getElementById('nav-user-area').style.display = 'flex';
+  document.getElementById('nav-username').textContent    = currentUser.username;
+  updateStats();
+  loadLeaderboard();
+  showScreen('lobby-screen');
+}
+
+function logout() {
+  currentUser = null;
+  if (ws) { ws.close(); ws = null; }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  document.getElementById('nav-user-area').style.display = 'none';
+  showScreen('auth-screen');
+}
+
+/* =====================================================================
+   Stats
+===================================================================== */
+async function updateStats() {
+  if (!currentUser) return;
+  try {
+    const res  = await fetch(`${API}/leaderboard/`);
+    const data = await res.json();
+    const me   = data.find(u => u.id === currentUser.id);
+    if (me) {
+      document.getElementById('stat-username').textContent = me.username;
+      document.getElementById('stat-wins').textContent    = me.wins;
+      document.getElementById('stat-losses').textContent  = me.losses;
+      const played = me.wins + me.losses;
+      document.getElementById('stat-wr').textContent = played
+        ? Math.round((me.wins / played) * 100) + '%'
+        : '—';
+    }
+  } catch {/* silent */}
+}
+
+/* =====================================================================
+   Leaderboard
+===================================================================== */
+async function loadLeaderboard() {
+  const el = document.getElementById('leaderboard-list');
+  try {
+    const res  = await fetch(`${API}/leaderboard/`);
+    const data = await res.json();
+    if (!data.length) { el.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px 0">No players yet.</p>'; return; }
+    const sorted = data.sort((a, b) => b.wins - a.wins);
+    const ranks  = ['gold', 'silver', 'bronze'];
+    el.innerHTML = sorted.map((u, i) => `
+      <div class="lb-row">
+        <div class="lb-rank ${ranks[i] || ''}">${i + 1}</div>
+        <div class="lb-name">${escHtml(u.username)} ${u.id === (currentUser?.id) ? '(you)' : ''}</div>
+        <div class="lb-wins">${u.wins}W</div>
+        <div class="lb-losses">${u.losses}L</div>
+      </div>
+    `).join('');
+  } catch {
+    el.innerHTML = '<p style="color:var(--muted);text-align:center">Could not load leaderboard.</p>';
+  }
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* =====================================================================
+   Matchmaking
+===================================================================== */
+async function findMatch() {
+  if (!currentUser) return;
+  const btn = document.getElementById('btn-find');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Searching…';
+
+  const dot = document.getElementById('queue-dot');
+  const msg = document.getElementById('queue-msg');
+  dot.className = 'dot waiting';
+  msg.textContent = 'Waiting for an opponent…';
+
+  try {
+    const res  = await fetch(`${API}/matchmaking/join?user_id=${currentUser.id}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.match_id) {
+      handleMatchFound(data);
+    } else {
+      // Poll until a match is found
+      msg.textContent = 'In queue – waiting for opponent…';
+      pollTimer = setInterval(async () => {
+        try {
+          const r = await fetch(`${API}/matchmaking/join?user_id=${currentUser.id}`, { method: 'POST' });
+          const d = await r.json();
+          if (d.match_id) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            handleMatchFound(d);
+          }
+        } catch {/* retry */}
+      }, 2000);
+    }
+  } catch {
+    toast('❌ Could not reach server');
+    btn.disabled = false;
+    btn.textContent = 'Find Match';
+    dot.className = 'dot';
+    msg.textContent = 'Press "Find Match" to join the queue';
+  }
+}
+
+function handleMatchFound(data) {
+  const { match_id, player_x, player_o } = data;
+  currentMatchId = match_id;
+  mySymbol = (player_x === currentUser.id) ? 'X' : 'O';
+
+  const dot = document.getElementById('queue-dot');
+  const msg = document.getElementById('queue-msg');
+  dot.className = 'dot found';
+  msg.textContent = `Match found! Match #${match_id}`;
+
+  toast(`🎮 Match found! You are playing as ${mySymbol}`);
+  setTimeout(() => startGame(match_id, mySymbol), 800);
+}
+
+function joinManualMatch() {
+  const id = parseInt(document.getElementById('manual-match-id').value);
+  if (!id) { toast('Enter a valid match ID'); return; }
+  currentMatchId = id;
+  mySymbol = 'X'; // default; server will enforce turns
+  startGame(id, mySymbol);
+}
+
+/* =====================================================================
+   Game
+===================================================================== */
+function startGame(matchId, symbol) {
+  board     = Array(9).fill('');
+  gameOver  = false;
+  mySymbol  = symbol;
+
+  document.getElementById('match-label').textContent  = `Match #${matchId}`;
+  document.getElementById('name-x').textContent = symbol === 'X' ? currentUser.username : 'Opponent';
+  document.getElementById('name-o').textContent = symbol === 'O' ? currentUser.username : 'Opponent';
+  document.getElementById('game-actions').innerHTML = '';
+  setStatusText('Connecting…', 'live-msg');
+  drawBoard();
+  showScreen('game-screen');
+  setActiveTurn('X'); // X always starts
+
+  // WebSocket
+  if (ws) ws.close();
+  ws = new WebSocket(`${WS}/ws/game/${matchId}`);
+
+  ws.onopen = () => setStatusText("Connected! It's X's turn.", 'live-msg');
+
+  ws.onmessage = e => {
+    const data = JSON.parse(e.data);
+
+    if (data.board) {
+      board = data.board;
+      drawBoard();
+
+      // derive whose turn it is now
+      const xCount = board.filter(c => c === 'X').length;
+      const oCount = board.filter(c => c === 'O').length;
+      const nextTurn = xCount <= oCount ? 'X' : 'O';
+      setActiveTurn(nextTurn);
+
+      if (!data.winner) {
+        const isMyTurn = nextTurn === mySymbol;
+        setStatusText(isMyTurn ? "🎯 Your turn!" : "⏳ Opponent's turn…", 'live-msg');
+      }
+    }
+
+    if (data.winner) {
+      gameOver = true;
+      handleGameOver(data.winner);
+    }
+
+    if (data.type === 'opponent_disconnected') {
+      setStatusText('💔 Opponent disconnected', 'live-msg');
+      gameOver = true;
+    }
+  };
+
+  ws.onclose = () => {
+    if (!gameOver) setStatusText('🔌 Disconnected', 'live-msg');
+  };
+}
+
+function setStatusText(msg, cls) {
+  const el = document.getElementById('status-text');
+  el.textContent = msg;
+  el.className = 'status-msg ' + cls;
+}
+
+function setActiveTurn(turn) {
+  const cardX = document.getElementById('card-x');
+  const cardO = document.getElementById('card-o');
+  if (turn === 'X') {
+    cardX.classList.add('active-turn');
+    cardO.classList.remove('active-turn', 'o-active');
+  } else {
+    cardO.classList.add('active-turn', 'o-active');
+    cardX.classList.remove('active-turn');
+  }
+}
+
+function drawBoard() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+  board.forEach((val, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'cell' + (val ? ' taken ' + (val === 'X' ? 'x-cell' : 'o-cell') : '');
+    cell.id = `cell-${i}`;
+    cell.onclick = () => makeMove(i);
+    const inner = document.createElement('span');
+    inner.className = 'cell-inner';
+    inner.textContent = val === 'X' ? '✕' : val === 'O' ? '○' : '';
+    cell.appendChild(inner);
+    boardEl.appendChild(cell);
+  });
+}
+
+function makeMove(pos) {
+  if (gameOver) return;
+  if (board[pos] !== '') return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) { toast('Not connected'); return; }
+
+  // Optimistic: show immediately so it feels snappy
+  ws.send(JSON.stringify({ position: pos }));
+}
+
+function handleGameOver(winner) {
+  gameOver = true;
+  // Highlight winning cells
+  const WIN_PATTERNS = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+  if (winner !== 'draw') {
+    for (const [a,b,c] of WIN_PATTERNS) {
+      if (board[a] === winner && board[b] === winner && board[c] === winner) {
+        [a,b,c].forEach(idx => {
+          const el = document.getElementById(`cell-${idx}`);
+          if (el) el.classList.add('winning');
+        });
+        break;
+      }
+    }
+  }
+
+  if (winner === 'draw') {
+    setStatusText("🤝 It's a draw!", 'draw-msg');
+    setTimeout(() => showModal('🤝', "It's a Draw!", 'A closely fought match — well played!'), 1200);
+  } else {
+    const iWon = winner === mySymbol;
+    setStatusText(iWon ? '🏆 You Won!' : '😞 You Lost', iWon ? 'win-msg' : '');
+    setTimeout(() => {
+      if (iWon) showModal('🏆', 'Victory!', "Excellent play! You crushed the opponent.");
+      else      showModal('😔', 'Defeated!', 'Tough luck. Try again!');
+    }, 1200);
+  }
+
+  updateStats();
+
+  // Back to lobby button
+  document.getElementById('game-actions').innerHTML =
+    `<button class="btn btn-primary" onclick="goLobby()">🏠 Back to Lobby</button>`;
+}
+
+function goLobby() {
+  document.getElementById('result-modal').classList.remove('visible');
+  if (ws) { ws.close(); ws = null; }
+  currentMatchId = null;
+  gameOver       = false;
+  board          = Array(9).fill('');
+
+  // Reset queue status
+  document.getElementById('queue-dot').className = 'dot';
+  document.getElementById('queue-msg').textContent = 'Press "Find Match" to join the queue';
+  document.getElementById('btn-find').disabled = false;
+  document.getElementById('btn-find').textContent = 'Find Match';
+
+  updateStats();
+  loadLeaderboard();
+  showScreen('lobby-screen');
+}
+
+/* =====================================================================
+   Keyboard shortcuts – Enter to submit forms
+===================================================================== */
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('reg-pass').addEventListener('keydown',   e => { if (e.key === 'Enter') doRegister(); });
+</script>
+</body>
+</html>
