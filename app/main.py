@@ -1,5 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from app.database import Base, engine
 from app.models.user import User
@@ -25,13 +28,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
-def root():
-    return {"message": "Tic Tac Toe Backend is running 🚀"}
-
-
 app.include_router(auth_router)
 app.include_router(matchmaking_router)
 app.include_router(game_router)
 app.include_router(leaderboard_router)
+
+# ─── Serve frontend ───
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+
+    @app.get("/")
+    def serve_index():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+else:
+    @app.get("/")
+    def root():
+        return {"message": "Tic Tac Toe Backend is running 🚀"}
