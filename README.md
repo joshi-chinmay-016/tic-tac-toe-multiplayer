@@ -6,9 +6,14 @@ A real-time multiplayer Tic Tac Toe game built with **FastAPI** (backend) and a 
 
 ## 📸 Preview
 
-| Auth Screen | Game Lobby |
-|---|---|
-| Login / Register with gradient glassmorphism UI | Matchmaking, personal stats & live leaderboard |
+### Login Screen
+![Login Screen](screenshots/login.png)
+
+### Game Lobby
+![Game Lobby](screenshots/lobby.png)
+
+### Game Result
+![Defeated Modal](screenshots/results.png)
 
 ---
 
