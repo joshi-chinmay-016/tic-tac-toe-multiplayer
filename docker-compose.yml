@@ -1,0 +1,17 @@
+services:
+  ttt-backend:
+    build: .
+    container_name: ttt_arena
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist the SQLite database outside the container
+      - ./game.db:/app/game.db
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
