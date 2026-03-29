@@ -7,7 +7,7 @@ A real-time multiplayer Tic Tac Toe game built with **FastAPI** (backend) and a 
 ## 🚀 Live Demo
 
 🎮 **Play Multiplayer Tic-Tac-Toe Online:**  
-👉  https://your-netlify-app.netlify.app
+👉  https://chimerical-kashata-c149ce.netlify.app/
 
 ⚡ Real-time gameplay using WebSockets  
 👥 Match with other players instantly
