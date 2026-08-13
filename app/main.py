@@ -4,16 +4,18 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-from app.database import Base, engine
+from app.database.base import Base
+from app.database.session import engine
 from app.models.user import User
-from app.models.match import Match
+from app.models.game import Game
 
-from app.auth.routes import router as auth_router
-from app.matchmaking.routes import router as matchmaking_router
-from app.game.routes import router as game_router
-from app.leaderboard.routes import router as leaderboard_router
-
-Base.metadata.create_all(bind=engine)
+from app.auth.router import router as auth_router
+from app.matchmaking.router import router as matchmaking_router
+from app.games.websocket import router as ws_router
+from app.games.router import router as game_router
+from app.leaderboard.router import router as leaderboard_router
+from app.rooms.router import router as rooms_router
+from app.users.router import router as users_router
 
 app = FastAPI(
     title="Tic Tac Toe Arena",
@@ -30,8 +32,11 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(matchmaking_router)
+app.include_router(ws_router)
 app.include_router(game_router)
 app.include_router(leaderboard_router)
+app.include_router(rooms_router)
+app.include_router(users_router)
 
 # ─── Serve frontend ───
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

@@ -919,6 +919,29 @@
             </div>
         </section>
 
+        <!-- ───── REPLAY SCREEN ───── -->
+        <section id="replay-screen" class="screen">
+            <div class="game-header">
+                <h2>📼 Replay</h2>
+                <span class="match-info" id="replay-label">Match #—</span>
+            </div>
+
+            <div class="board-wrapper">
+                <div id="replay-board"></div>
+            </div>
+
+            <div style="text-align:center; margin-bottom:20px;">
+                <div style="font-size:1.1rem; font-weight:bold; margin-bottom:10px;" id="replay-status">Move 0 / 0</div>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button class="btn btn-secondary" onclick="replayPrev()">◀ Prev</button>
+                    <button class="btn btn-secondary" onclick="replayNext()">Next ▶</button>
+                </div>
+            </div>
+            <div style="text-align:center;">
+                <button class="btn btn-primary" onclick="showScreen('lobby-screen')">🏠 Back to Lobby</button>
+            </div>
+        </section>
+
         <!-- ───── LOBBY SCREEN ───── -->
         <section id="lobby-screen" class="screen">
             <div class="lobby-header">
@@ -928,9 +951,27 @@
 
             <div class="lobby-grid">
 
+                <!-- AI Card -->
+                <div class="card">
+                    <div class="lobby-card-title">Play vs AI</div>
+                    <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+                        <select id="ai-difficulty" class="input-select" style="width:100%; padding:10px; border-radius:10px; background:var(--surface2); color:var(--text); border:1px solid var(--border);">
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                            <option value="impossible">Impossible (Minimax)</option>
+                        </select>
+                        <select id="ai-symbol" class="input-select" style="width:100%; padding:10px; border-radius:10px; background:var(--surface2); color:var(--text); border:1px solid var(--border);">
+                            <option value="X">Play as X (First)</option>
+                            <option value="O">Play as O (Second)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" style="width:100%" onclick="startAIGame()">Start AI Match</button>
+                </div>
+
                 <!-- Matchmaking card -->
                 <div class="card">
-                    <div class="lobby-card-title">Matchmaking</div>
+                    <div class="lobby-card-title">Online Multiplayer</div>
                     <div class="matchmaking-status" id="queue-status">
                         <div class="dot" id="queue-dot"></div>
                         <span id="queue-msg">Press "Find Match" to join the queue</span>
@@ -942,6 +983,19 @@
                         <div style="display:flex;gap:8px;margin-top:4px">
                             <input type="text" id="manual-match-id" placeholder="Match ID" style="flex:1" />
                             <button class="btn btn-secondary" onclick="joinManualMatch()">Join</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Private Room Card -->
+                <div class="card">
+                    <div class="lobby-card-title">Private Room</div>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn btn-secondary" style="width:100%" onclick="createPrivateRoom()">Create Room</button>
+                        <div style="text-align:center; font-size:0.85rem; color:var(--muted); margin:4px 0;">OR</div>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="room-code-input" placeholder="Room Code" style="flex:1; padding:10px; border-radius:10px; background:var(--surface2); color:var(--text); border:1px solid var(--border);" />
+                            <button class="btn btn-primary" onclick="joinPrivateRoom()">Join</button>
                         </div>
                     </div>
                 </div>
@@ -977,13 +1031,6 @@
 
             </div>
 
-            <!-- Manual join toggle -->
-            <div style="text-align:center;margin-top:16px">
-                <button class="btn btn-secondary" style="font-size:0.8rem;padding:7px 16px"
-                    onclick="document.getElementById('match-id-section').style.display=document.getElementById('match-id-section').style.display==='none'?'block':'none'">
-                    Join by Match ID
-                </button>
-            </div>
         </section>
 
         <!-- ───── GAME SCREEN ───── -->
@@ -1035,26 +1082,6 @@
     <div id="toast"></div>
 
     <script>
-        /* =====================================================================
-           Config
-        ===================================================================== */
-        const API = 'https://tic-tac-toe-jzda.onrender.com';
-        const WS = 'wss://tic-tac-toe-jzda.onrender.com';
-
-        /* =====================================================================
-           State
-        ===================================================================== */
-        let currentUser = null; // { id, username }
-        let ws = null;
-        let board = Array(9).fill('');
-        let mySymbol = null; // 'X' or 'O'
-        let currentMatchId = null;
-        let gameOver = false;
-        let pollTimer = null;
-
-        /* =====================================================================
-           Utilities
-        ===================================================================== */
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -1088,9 +1115,6 @@
                 : text;
         }
 
-        /* =====================================================================
-           Auth tab switch
-        ===================================================================== */
         function switchTab(tab) {
             const isLogin = tab === 'login';
             document.getElementById('tab-login').className = 'tab-btn' + (isLogin ? ' active' : '');
@@ -1099,251 +1123,22 @@
             document.getElementById('register-form').style.display = !isLogin ? '' : 'none';
         }
 
-        /* =====================================================================
-           Register
-        ===================================================================== */
-        async function doRegister() {
-            const username = document.getElementById('reg-user').value.trim();
-            const password = document.getElementById('reg-pass').value;
-            if (!username || !password) { setMsg('register-msg', 'Please fill all fields.', 'error'); return; }
+        function goLobby() {
+            document.getElementById('result-modal').classList.remove('visible');
+            if (typeof ws !== 'undefined' && ws) { ws.close(); ws = null; }
+            currentMatchId = null;
+            isGameOver = false;
+            boardState = Array(9).fill('');
 
-            setLoading('btn-register', true, 'Creating…');
-            try {
-                const res = await fetch(`${API}/auth/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    setMsg('register-msg', '✅ Account created! You can now log in.', 'success');
-                    setTimeout(() => switchTab('login'), 1200);
-                } else {
-                    setMsg('register-msg', data.detail || 'Registration failed.', 'error');
-                }
-            } catch {
-                setMsg('register-msg', 'Server unreachable. Is the backend running?', 'error');
-            } finally {
-                setLoading('btn-register', false, 'Create Account');
-            }
-        }
+            // Reset queue status
+            document.getElementById('queue-dot').className = 'dot';
+            document.getElementById('queue-msg').textContent = 'Press "Find Match" to join the queue';
+            document.getElementById('btn-find').disabled = false;
+            document.getElementById('btn-find').textContent = 'Find Match';
 
-        /* =====================================================================
-           Login
-        ===================================================================== */
-        async function doLogin() {
-            const username = document.getElementById('login-user').value.trim();
-            const password = document.getElementById('login-pass').value;
-            if (!username || !password) { setMsg('login-msg', 'Please fill all fields.', 'error'); return; }
-
-            setLoading('btn-login', true, 'Logging in…');
-            try {
-                const res = await fetch(`${API}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    currentUser = { id: data.user_id, username };
-                    afterLogin();
-                } else {
-                    setMsg('login-msg', data.detail || 'Login failed.', 'error');
-                }
-            } catch {
-                setMsg('login-msg', 'Server unreachable. Is the backend running?', 'error');
-            } finally {
-                setLoading('btn-login', false, 'Login');
-            }
-        }
-
-        function afterLogin() {
-            document.getElementById('nav-user-area').style.display = 'flex';
-            document.getElementById('nav-username').textContent = currentUser.username;
-            updateStats();
-            loadLeaderboard();
+            if (typeof loadProfileStats === 'function') loadProfileStats();
+            if (typeof loadLeaderboard === 'function') loadLeaderboard();
             showScreen('lobby-screen');
-        }
-
-        function logout() {
-            currentUser = null;
-            if (ws) { ws.close(); ws = null; }
-            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-            document.getElementById('nav-user-area').style.display = 'none';
-            showScreen('auth-screen');
-        }
-
-        /* =====================================================================
-           Stats
-        ===================================================================== */
-        async function updateStats() {
-            if (!currentUser) return;
-            try {
-                const res = await fetch(`${API}/leaderboard/`);
-                const data = await res.json();
-                const me = data.find(u => u.id === currentUser.id);
-                if (me) {
-                    document.getElementById('stat-username').textContent = me.username;
-                    document.getElementById('stat-wins').textContent = me.wins;
-                    document.getElementById('stat-losses').textContent = me.losses;
-                    const played = me.wins + me.losses;
-                    document.getElementById('stat-wr').textContent = played
-                        ? Math.round((me.wins / played) * 100) + '%'
-                        : '—';
-                }
-            } catch {/* silent */ }
-        }
-
-        /* =====================================================================
-           Leaderboard
-        ===================================================================== */
-        async function loadLeaderboard() {
-            const el = document.getElementById('leaderboard-list');
-            try {
-                const res = await fetch(`${API}/leaderboard/`);
-                const data = await res.json();
-                if (!data.length) { el.innerHTML = '<p style="color:var(--muted);text-align:center;padding:20px 0">No players yet.</p>'; return; }
-                const sorted = data.sort((a, b) => b.wins - a.wins);
-                const ranks = ['gold', 'silver', 'bronze'];
-                el.innerHTML = sorted.map((u, i) => `
-      <div class="lb-row">
-        <div class="lb-rank ${ranks[i] || ''}">${i + 1}</div>
-        <div class="lb-name">${escHtml(u.username)} ${u.id === (currentUser?.id) ? '(you)' : ''}</div>
-        <div class="lb-wins">${u.wins}W</div>
-        <div class="lb-losses">${u.losses}L</div>
-      </div>
-    `).join('');
-            } catch {
-                el.innerHTML = '<p style="color:var(--muted);text-align:center">Could not load leaderboard.</p>';
-            }
-        }
-
-        function escHtml(str) {
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
-
-        /* =====================================================================
-           Matchmaking
-        ===================================================================== */
-        async function findMatch() {
-            if (!currentUser) return;
-            const btn = document.getElementById('btn-find');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Searching…';
-
-            const dot = document.getElementById('queue-dot');
-            const msg = document.getElementById('queue-msg');
-            dot.className = 'dot waiting';
-            msg.textContent = 'Waiting for an opponent…';
-
-            try {
-                const res = await fetch(`${API}/matchmaking/join?user_id=${currentUser.id}`, { method: 'POST' });
-                const data = await res.json();
-
-                if (data.match_id) {
-                    handleMatchFound(data);
-                } else {
-                    // Poll until a match is found
-                    msg.textContent = 'In queue – waiting for opponent…';
-                    pollTimer = setInterval(async () => {
-                        try {
-                            const r = await fetch(`${API}/matchmaking/join?user_id=${currentUser.id}`, { method: 'POST' });
-                            const d = await r.json();
-                            if (d.match_id) {
-                                clearInterval(pollTimer);
-                                pollTimer = null;
-                                handleMatchFound(d);
-                            }
-                        } catch {/* retry */ }
-                    }, 2000);
-                }
-            } catch {
-                toast('❌ Could not reach server');
-                btn.disabled = false;
-                btn.textContent = 'Find Match';
-                dot.className = 'dot';
-                msg.textContent = 'Press "Find Match" to join the queue';
-            }
-        }
-
-        function handleMatchFound(data) {
-            const { match_id, player_x, player_o } = data;
-            currentMatchId = match_id;
-            mySymbol = (player_x === currentUser.id) ? 'X' : 'O';
-
-            const dot = document.getElementById('queue-dot');
-            const msg = document.getElementById('queue-msg');
-            dot.className = 'dot found';
-            msg.textContent = `Match found! Match #${match_id}`;
-
-            toast(`🎮 Match found! You are playing as ${mySymbol}`);
-            setTimeout(() => startGame(match_id, mySymbol), 800);
-        }
-
-        function joinManualMatch() {
-            const id = parseInt(document.getElementById('manual-match-id').value);
-            if (!id) { toast('Enter a valid match ID'); return; }
-            currentMatchId = id;
-            mySymbol = 'X'; // default; server will enforce turns
-            startGame(id, mySymbol);
-        }
-
-        /* =====================================================================
-           Game
-        ===================================================================== */
-        function startGame(matchId, symbol) {
-            board = Array(9).fill('');
-            gameOver = false;
-            mySymbol = symbol;
-
-            document.getElementById('match-label').textContent = `Match #${matchId}`;
-            document.getElementById('name-x').textContent = symbol === 'X' ? currentUser.username : 'Opponent';
-            document.getElementById('name-o').textContent = symbol === 'O' ? currentUser.username : 'Opponent';
-            document.getElementById('game-actions').innerHTML = '';
-            setStatusText('Connecting…', 'live-msg');
-            drawBoard();
-            showScreen('game-screen');
-            setActiveTurn('X'); // X always starts
-
-            // WebSocket
-            if (ws) ws.close();
-            ws = new WebSocket(`${WS}/ws/game/${matchId}`);
-
-            ws.onopen = () => setStatusText("Connected! It's X's turn.", 'live-msg');
-
-            ws.onmessage = e => {
-                const data = JSON.parse(e.data);
-
-                if (data.board) {
-                    board = data.board;
-                    drawBoard();
-
-                    // derive whose turn it is now
-                    const xCount = board.filter(c => c === 'X').length;
-                    const oCount = board.filter(c => c === 'O').length;
-                    const nextTurn = xCount <= oCount ? 'X' : 'O';
-                    setActiveTurn(nextTurn);
-
-                    if (!data.winner) {
-                        const isMyTurn = nextTurn === mySymbol;
-                        setStatusText(isMyTurn ? "🎯 Your turn!" : "⏳ Opponent's turn…", 'live-msg');
-                    }
-                }
-
-                if (data.winner) {
-                    gameOver = true;
-                    handleGameOver(data.winner);
-                }
-
-                if (data.type === 'opponent_disconnected') {
-                    setStatusText('💔 Opponent disconnected', 'live-msg');
-                    gameOver = true;
-                }
-            };
-
-            ws.onclose = () => {
-                if (!gameOver) setStatusText('🔌 Disconnected', 'live-msg');
-            };
         }
 
         function setStatusText(msg, cls) {
@@ -1363,95 +1158,12 @@
                 cardX.classList.remove('active-turn');
             }
         }
-
-        function drawBoard() {
-            const boardEl = document.getElementById('board');
-            boardEl.innerHTML = '';
-            board.forEach((val, i) => {
-                const cell = document.createElement('div');
-                cell.className = 'cell' + (val ? ' taken ' + (val === 'X' ? 'x-cell' : 'o-cell') : '');
-                cell.id = `cell-${i}`;
-                cell.onclick = () => makeMove(i);
-                const inner = document.createElement('span');
-                inner.className = 'cell-inner';
-                inner.textContent = val === 'X' ? '✕' : val === 'O' ? '○' : '';
-                cell.appendChild(inner);
-                boardEl.appendChild(cell);
-            });
-        }
-
-        function makeMove(pos) {
-            if (gameOver) return;
-            if (board[pos] !== '') return;
-            if (!ws || ws.readyState !== WebSocket.OPEN) { toast('Not connected'); return; }
-
-            // Optimistic: show immediately so it feels snappy
-            ws.send(JSON.stringify({ position: pos }));
-        }
-
-        function handleGameOver(winner) {
-            gameOver = true;
-            // Highlight winning cells
-            const WIN_PATTERNS = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8],
-                [0, 3, 6], [1, 4, 7], [2, 5, 8],
-                [0, 4, 8], [2, 4, 6]
-            ];
-            if (winner !== 'draw') {
-                for (const [a, b, c] of WIN_PATTERNS) {
-                    if (board[a] === winner && board[b] === winner && board[c] === winner) {
-                        [a, b, c].forEach(idx => {
-                            const el = document.getElementById(`cell-${idx}`);
-                            if (el) el.classList.add('winning');
-                        });
-                        break;
-                    }
-                }
-            }
-
-            if (winner === 'draw') {
-                setStatusText("🤝 It's a draw!", 'draw-msg');
-                setTimeout(() => showModal('🤝', "It's a Draw!", 'A closely fought match — well played!'), 1200);
-            } else {
-                const iWon = winner === mySymbol;
-                setStatusText(iWon ? '🏆 You Won!' : '😞 You Lost', iWon ? 'win-msg' : '');
-                setTimeout(() => {
-                    if (iWon) showModal('🏆', 'Victory!', "Excellent play! You crushed the opponent.");
-                    else showModal('😔', 'Defeated!', 'Tough luck. Try again!');
-                }, 1200);
-            }
-
-            updateStats();
-
-            // Back to lobby button
-            document.getElementById('game-actions').innerHTML =
-                `<button class="btn btn-primary" onclick="goLobby()">🏠 Back to Lobby</button>`;
-        }
-
-        function goLobby() {
-            document.getElementById('result-modal').classList.remove('visible');
-            if (ws) { ws.close(); ws = null; }
-            currentMatchId = null;
-            gameOver = false;
-            board = Array(9).fill('');
-
-            // Reset queue status
-            document.getElementById('queue-dot').className = 'dot';
-            document.getElementById('queue-msg').textContent = 'Press "Find Match" to join the queue';
-            document.getElementById('btn-find').disabled = false;
-            document.getElementById('btn-find').textContent = 'Find Match';
-
-            updateStats();
-            loadLeaderboard();
-            showScreen('lobby-screen');
-        }
-
-        /* =====================================================================
-           Keyboard shortcuts – Enter to submit forms
-        ===================================================================== */
-        document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-        document.getElementById('reg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
     </script>
+    <script src="static/js/api.js"></script>
+    <script src="static/js/auth.js"></script>
+    <script src="static/js/lobby.js"></script>
+    <script src="static/js/game.js"></script>
+    <script src="static/js/replay.js"></script>
 </body>
 
 </html>

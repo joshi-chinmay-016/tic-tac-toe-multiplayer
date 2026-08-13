@@ -1,17 +1,56 @@
+version: '3.8'
+
 services:
-  ttt-backend:
+  db:
+    image: postgres:15-alpine
+    container_name: ttt_postgres
+    environment:
+      POSTGRES_USER: ttt_user
+      POSTGRES_PASSWORD: ttt_password
+      POSTGRES_DB: ttt_arena
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ttt_user -d ttt_arena"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ttt_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
     build: .
-    container_name: ttt_arena
+    container_name: ttt_backend
     ports:
       - "8000:8000"
-    volumes:
-      # Persist the SQLite database outside the container
-      - ./game.db:/app/game.db
     environment:
-      - PYTHONUNBUFFERED=1
-    restart: unless-stopped
+      - DATABASE_URL=postgresql://ttt_user:ttt_password@db:5432/ttt_arena
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=supersecretkey_dev
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

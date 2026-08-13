@@ -1,227 +1,153 @@
-# ⚔️ TTT Arena — Multiplayer Tic Tac Toe
+# ⚔️ TTT Arena — Real-Time Multiplayer Tic-Tac-Toe
 
-A real-time multiplayer Tic Tac Toe game built with **FastAPI** (backend) and a **vanilla HTML/CSS/JS** frontend. Players register, join a matchmaking queue, and play live via WebSockets.
-
----
-
-## 🚀 Live Demo
-
-🎮 **Play Multiplayer Tic-Tac-Toe Online:**  
-👉  https://chimerical-kashata-c149ce.netlify.app/
-
-⚡ Real-time gameplay using WebSockets  
-👥 Match with other players instantly
-
-## 📸 Preview
-
-### Login Screen
-![Login Screen](screenshots/login.png)
-
-### Game Lobby
-![Game Lobby](screenshots/lobby.png)
-
-### Game Result
-![Defeated Modal](screenshots/results.png)
+A production-quality real-time multiplayer Tic-Tac-Toe game platform. Built with a FastAPI backend connected to PostgreSQL and Redis, offering authoritative game logic, full Elo rating, match history replays, JWT authentication, and Minimax-powered AI.
 
 ---
 
-## 🗂️ Project Structure
-
-```
-ttt_backend/
-├── app/
-│   ├── main.py                  # FastAPI app entry point (CORS + static files)
-│   ├── database.py              # SQLAlchemy engine & session setup
-│   ├── models/
-│   │   ├── user.py              # User model (id, username, password, wins, losses)
-│   │   └── match.py             # Match model (players, board state, status, winner)
-│   ├── schemas/
-│   │   └── user.py              # Pydantic schemas for register/login
-│   ├── auth/
-│   │   └── routes.py            # POST /auth/register  POST /auth/login
-│   ├── matchmaking/
-│   │   └── routes.py            # POST /matchmaking/join  (queue + pending match logic)
-│   ├── game/
-│   │   ├── routes.py            # WS /ws/game/{match_id}
-│   │   ├── engine.py            # check_winner() — all win patterns + draw detection
-│   │   └── websocket_manager.py # ConnectionManager — per-match broadcast
-│   ├── leaderboard/
-│   │   └── routes.py            # GET /leaderboard/
-│   └── utils/
-│       └── security.py          # bcrypt hash_password / verify_password
-├── frontend/
-│   └── index.html               # Full SPA — Auth, Lobby & Game screens
-├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
-├── .gitignore
-└── game.db                      # SQLite database (auto-created on first run)
-```
+## 🚀 Demo
+*(Live application link placeholder)*
 
 ---
 
-## 🚀 Getting Started
+## ✨ Features
 
-### Prerequisites
-- Python 3.10+
-- `pip` / `venv`
-
-### 1. Clone & set up environment
-
-```bash
-git clone <your-repo-url>
-cd ttt_backend
-
-python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-
-# macOS / Linux
-source .venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Run the server
-
-```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-### 4. Open the game
-
-Navigate to **http://127.0.0.1:8000** in your browser.
+- **Real-time multiplayer**: WebSocket-powered server-authoritative engine handling connections gracefully.
+- **AI opponent**: Four levels ranging from Easy (Random) to Impossible (Minimax + Alpha-Beta Pruning).
+- **Matchmaking**: Redis-backed player queue supporting concurrent user matchmaking.
+- **Private Rooms**: Generate unique 6-character room codes to challenge friends.
+- **Competitive Ranking**: Full Elo rating system tracking wins, streaks, losses, and win rates.
+- **Match History & Replay**: Detailed move-by-move match storage allows reconstruction/replaying of completed games.
+- **Reconnection Support**: Grace-period mechanisms to gracefully resume matches if a client disconnects briefly.
+- **Production Engineering**: Automated PyTest suites, JWT refresh flows, Alembic migrations, and full Dockerization.
 
 ---
 
-## 🎮 How to Play
+## 🏗️ Architecture
 
-1. **Register** two separate accounts (use two browser tabs)
-2. **Login** in each tab with a different account
-3. Click **"Find Match"** in both tabs
-4. Both players are matched automatically and taken to the game board
-5. **X always goes first** — click any empty cell to place your mark
-6. First to get **3 in a row** wins; board full with no winner = **draw**
-7. Wins/losses are recorded and visible on the **Leaderboard**
+```mermaid
+graph TD
+    Browser(Browser Client)
+    API(FastAPI App)
+    Auth(Auth Service)
+    Match(Matchmaking)
+    GameSvc(Game Service)
+    DB[(PostgreSQL)]
+    Cache[(Redis)]
+    WS(WebSocket Manager)
+    Engine(Game Engine)
+    AI(AI Engine)
 
-> **Tip:** You can also click "Join by Match ID" to connect directly using a match number.
+    Browser --> API
+    API --> Auth
+    API --> Match
+    API --> WS
+
+    Auth --> DB
+    Match --> Cache
+    WS --> GameSvc
+    GameSvc --> Engine
+    GameSvc --> AI
+    GameSvc --> DB
+
+    AI -.-> Engine
+```
+
+### AI Architecture
+
+- **Easy**: Random available move.
+- **Medium**: Immediate win detection, defensive block detection, center preference, and corner heuristics.
+- **Hard**: Medium heuristics plus fork creation/prevention.
+- **Impossible**: Full Minimax search algorithm with Alpha-Beta pruning, ensuring it never loses.
 
 ---
 
-## 🌐 API Reference
+## 🗄️ Database Schema
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Serves the frontend (`index.html`) |
-| `POST` | `/auth/register` | Register a new user `{username, password}` |
-| `POST` | `/auth/login` | Login → returns `{user_id}` |
-| `POST` | `/matchmaking/join?user_id=N` | Join matchmaking queue or retrieve match |
-| `WS` | `/ws/game/{match_id}` | Real-time game WebSocket |
-| `GET` | `/leaderboard/` | All users sorted by win count |
+Entities mapped via SQLAlchemy and managed by Alembic:
 
-### Example: Register
+- `users` (id, username, password_hash, stats, rating, streak tracking)
+- `games` (id, type, players, difficulty, status, board_state (JSON), turn, winner)
+- `game_events` (id, game_id, player_id, symbol, position, sequence timing for Replays)
+- `refresh_tokens` (id, user_id, token hash, expiration)
 
-```bash
-curl -X POST http://127.0.0.1:8000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username": "alice", "password": "secret"}'
-```
+---
 
-### Example: Login
+## 🌐 API
 
-```bash
-curl -X POST http://127.0.0.1:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "alice", "password": "secret"}'
-# Response: {"message": "Login success", "user_id": 1}
-```
+- `POST /auth/register`: Create account
+- `POST /auth/login`: Return JWT token
+- `POST /matchmaking/join`: Poll Redis queue to retrieve a match ID
+- `POST /rooms/create`: Initialize a private match via 6-char code
+- `POST /rooms/join`: Join private match
+- `GET /leaderboard`: Retrieve top users by Rating
+- `GET /users/{username}`: Fetch detailed user statistics profile
 
-### WebSocket Message Format
+---
 
-**Client → Server** (make a move):
-```json
-{ "position": 4 }
-```
-Positions are 0–8, mapped left-to-right, top-to-bottom:
-```
-0 | 1 | 2
-3 | 4 | 5
-6 | 7 | 8
-```
+## 📡 WebSocket Protocol
 
-**Server → Client** (game state update):
+Connected to `wss://{host}/ws/game/{match_id}?token={jwt_token}`.
+
+**Client ➡️ Server Events:**
 ```json
 {
-  "board":  ["X", "", "O", "", "X", "", "", "", ""],
-  "winner": null
+  "type": "move",
+  "position": 4
 }
 ```
-`winner` is `"X"`, `"O"`, `"draw"`, or `null` (game still in progress).
+*(Also accepts: `rematch_request`, `rematch_decline`)*
+
+**Server ➡️ Client Events:**
+```json
+{
+  "type": "game_state",
+  "game_id": 1,
+  "board": ["X", "", "O", "", "X", "", "", "", ""],
+  "current_turn": "O",
+  "status": "active",
+  "winner": null,
+  "winning_line": null,
+  "version": 3,
+  "turn_timer": 30
+}
+```
+*(Other broadcasts: `error`, `player_joined`, `opponent_disconnected`, `rematch_requested`, etc)*
 
 ---
 
 ## 🐳 Docker
 
-### Build & run with Docker Compose
+Run the entire stack instantly.
 
 ```bash
 docker-compose up --build
 ```
+PostgreSQL, Redis, and the FastAPI application will boot concurrently.
 
-The app will be available at **http://localhost:8000**.  
-The SQLite database is mounted from the host so data persists across restarts.
+---
 
-### Build manually
+## 🧪 Testing
+
+The backend includes a comprehensive `pytest` suite ensuring robust integration:
 
 ```bash
-docker build -t ttt-arena .
-docker run -p 8000:8000 ttt-arena
+# Setup python environment
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run full suite
+pytest tests/
 ```
 
----
-
-## 🗄️ Database
-
-Uses **SQLite** via SQLAlchemy. The file `game.db` is auto-created in the project root on first run. Tables:
-
-| Table | Columns |
-|---|---|
-| `users` | `id`, `username`, `password` (bcrypt), `wins`, `losses` |
-| `matches` | `id`, `player_x`, `player_o`, `board_state`, `status`, `winner` |
-
-`board_state` is stored as a comma-separated string of 9 values, e.g. `"X,,O,,,X,,,"`
+Tests cover Auth dependencies, structured Websocket broadcast concurrency, Game Engine win states, and the deterministic properties of the AI layers.
 
 ---
 
-## 🛠️ Tech Stack
+## 💡 Architecture Decisions
 
-| Layer | Technology |
-|---|---|
-| Backend framework | [FastAPI](https://fastapi.tiangolo.com/) |
-| ASGI server | [Uvicorn](https://www.uvicorn.org/) |
-| Database ORM | [SQLAlchemy](https://www.sqlalchemy.org/) |
-| Database | SQLite (dev) |
-| Password hashing | [passlib](https://passlib.readthedocs.io/) + bcrypt |
-| Real-time comms | WebSockets (via `websockets` library) |
-| Frontend | Vanilla HTML / CSS / JavaScript |
-| Containerisation | Docker + Docker Compose |
-
----
-
-## ⚠️ Known Limitations & Notes
-
-- **In-memory matchmaking queue** — the queue resets on every server restart. A production system should use Redis or a database-backed queue.
-- **No authentication tokens (JWT)** — `user_id` is passed directly as a query param. Add JWT for production use.
-- **SQLite** is single-file and not suited for concurrent multi-instance deployments. Swap for PostgreSQL for production.
-- **bcrypt pin** — `bcrypt==4.0.1` is pinned because `passlib 1.7.4` is incompatible with bcrypt ≥ 4.1. Either upgrade passlib or use `bcrypt==4.0.1`.
-
----
-
-## 📄 License
-
-MIT — free to use, modify, and distribute.
+- **PostgreSQL**: Selected for robust concurrent transaction properties, protecting GameEvents generation accurately.
+- **Redis**: Ideal for rapid enqueueing/dequeuing Matchmaking queue states without hammering persistent SQL, and to implement strict Rate Limiting easily.
+- **WebSockets**: Crucial for instant game-state synchronization between two clients, preventing API polling fatigue.
+- **JWT**: Eliminates risky state tampering (e.g. `?user_id=123` parameter exploits).
+- **Minimax**: Since Tic-Tac-Toe state space is tiny, a depth-first heuristic search fully maps the decision tree to perfection seamlessly.
